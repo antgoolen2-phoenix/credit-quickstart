@@ -1,6 +1,5 @@
 import dotenv from "dotenv";
 import express from "express";
-import bodyParser from "body-parser";
 import { exec } from "child_process";
 import { loadStore } from "./store.js";
 
@@ -26,8 +25,8 @@ if (missing.length > 0) {
 await loadStore();
 
 const app = express();
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
 
 const routes = ["users", "tokens", "reports"];
 
@@ -45,7 +44,8 @@ await Promise.all(
 
 const eventsModule = await import("./routes/events.js");
 app.use("/server/events", eventsModule.default);
-app.post("/internal/report-ready", (req, res) => {
+app.post("/internal/report-ready", async (req, res) => {
+  await loadStore();
   eventsModule.notifyReportReady();
   res.json({ status: "ok" });
 });

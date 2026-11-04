@@ -58,7 +58,7 @@ const ReportPending: React.FC<ReportPendingProps> = ({ isRefresh = false, isEmpl
         (msg) => { coreError = msg; }
       );
       if (!homeLendingData) {
-        setDebugInfo("Employment verification not ready yet — will retry.");
+        setDebugInfo(`Employment verification not ready yet — will retry.\n\n${coreError}`);
         return false;
       }
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -106,9 +106,15 @@ const ReportPending: React.FC<ReportPendingProps> = ({ isRefresh = false, isEmpl
   };
 
   const startPolling = (reason: string) => {
+    if (pollIntervalRef.current) return;
     setPollingFallback(true);
     setDebugInfo(reason);
-    pollIntervalRef.current = setInterval(fetchReports, POLL_INTERVAL_MS);
+    pollIntervalRef.current = setInterval(() => {
+      fetchReports().catch((err) => {
+        console.error("Poll fetch failed:", err);
+        setDebugInfo(`Error checking report — will retry.\n\n${err?.message ?? err}`);
+      });
+    }, POLL_INTERVAL_MS);
   };
 
   useEffect(() => {
@@ -136,7 +142,10 @@ const ReportPending: React.FC<ReportPendingProps> = ({ isRefresh = false, isEmpl
 
     const handleReportReady = async () => {
       setDebugInfo("Report is ready! Fetching data...");
-      await fetchReports();
+      const ready = await fetchReports();
+      if (!ready) {
+        startPolling("Report signaled ready but data isn't available yet — polling every 5s.");
+      }
     };
 
     es.addEventListener("connected", handleConnected);
